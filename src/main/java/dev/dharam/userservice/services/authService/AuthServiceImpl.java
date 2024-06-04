@@ -1,11 +1,13 @@
 package dev.dharam.userservice.services.authService;
 
 import dev.dharam.userservice.dtos.*;
+import dev.dharam.userservice.entities.Role;
 import dev.dharam.userservice.entities.Session;
 import dev.dharam.userservice.entities.SessionStatus;
 import dev.dharam.userservice.entities.User;
 import dev.dharam.userservice.exceptions.UserAlreadyExistsException;
 import dev.dharam.userservice.exceptions.UserDoesNotExistsException;
+import dev.dharam.userservice.repositories.RoleRepository;
 import dev.dharam.userservice.repositories.SessionRepository;
 import dev.dharam.userservice.repositories.UserRepository;
 
@@ -18,18 +20,25 @@ import org.springframework.util.MultiValueMapAdapter;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class AuthServiceImpl implements AuthService{
 
     private UserRepository userRepository;
-    private BCryptPasswordEncoder bCryptPasswordEncoder;
     private SessionRepository sessionRepository;
+    private RoleRepository roleRepository;
+    private BCryptPasswordEncoder bCryptPasswordEncoder;
 
-    public AuthServiceImpl(UserRepository userRepository, SessionRepository sessionRepository) {
+
+    public AuthServiceImpl(UserRepository userRepository,
+                           SessionRepository sessionRepository,
+                           RoleRepository roleRepository) {
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
+        this.roleRepository = roleRepository;
         this.bCryptPasswordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -43,6 +52,13 @@ public class AuthServiceImpl implements AuthService{
         User user = new User();
         user.setEmail(request.getEmail());
         user.setPassword(bCryptPasswordEncoder.encode(request.getPassword()));
+        Set<Role> roles = new HashSet<>();
+        Role role = roleRepository.findByName("USER").orElseThrow(
+                ()->new RuntimeException("Unknown error")
+        );
+
+        roles.add(role);
+        user.setRoles(roles);
         User savedUser = userRepository.save(user);
         return UserDto.from(savedUser);
     }
@@ -79,23 +95,27 @@ public class AuthServiceImpl implements AuthService{
     }
 
     @Override
-    public SessionStatus validate(ValidateTokenRequestDto request) {
+    public Optional<UserDto> validate(ValidateTokenRequestDto request) {
         Optional<Session> sessionOptional = sessionRepository.findByTokenAndUser_Id(request.getToken(), request.getUserId());
 
         if(sessionOptional.isEmpty()){
-            return SessionStatus.INVALID;
+            return Optional.empty();
         }
 
         Session session = sessionOptional.get();
 
         if(!session.getSessionStatus().equals(SessionStatus.ACTIVE)){
-            return SessionStatus.EXPIRED;
+            return Optional.empty();
         }
 
 //        if(Instant.now().isBefore(session.getExpiringAt())){
 //            return SessionStatus.EXPIRED;
 //        }
-        return SessionStatus.ACTIVE;
+
+        User user = userRepository.findById(request.getUserId()).get();
+        UserDto userDto = UserDto.from(user);
+
+        return Optional.of(userDto);
 
     }
 

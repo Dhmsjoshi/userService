@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -36,9 +38,19 @@ public class AuthController {
     }
 
     @PostMapping("/validate")
-    public ResponseEntity<SessionStatus> validateToken(@RequestBody ValidateTokenRequestDto request){
-        SessionStatus sessionStatus = authService.validate(request);
-        return new ResponseEntity<>(sessionStatus, HttpStatus.OK);
+    public ResponseEntity<ValidateTokenResponseDto> validateToken(@RequestBody ValidateTokenRequestDto request){
+        Optional<UserDto> userDto = authService.validate(request);
+        if(userDto.isEmpty()){
+            ValidateTokenResponseDto response = new ValidateTokenResponseDto();
+            response.setSessionStatus(SessionStatus.INVALID);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }
+
+        ValidateTokenResponseDto response = new ValidateTokenResponseDto();
+        response.setSessionStatus(SessionStatus.ACTIVE);
+        response.setUserDto(userDto.get());
+        return new ResponseEntity<>(response, HttpStatus.OK);
+
     }
 
 
