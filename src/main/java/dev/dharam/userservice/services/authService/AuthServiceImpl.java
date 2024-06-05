@@ -12,9 +12,11 @@ import dev.dharam.userservice.repositories.SessionRepository;
 import dev.dharam.userservice.repositories.UserRepository;
 
 import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMapAdapter;
 
@@ -27,20 +29,17 @@ import java.util.Set;
 @Service
 public class AuthServiceImpl implements AuthService{
 
+    @Autowired
     private UserRepository userRepository;
+    @Autowired
     private SessionRepository sessionRepository;
+    @Autowired
     private RoleRepository roleRepository;
-    private BCryptPasswordEncoder bCryptPasswordEncoder;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
 
-    public AuthServiceImpl(UserRepository userRepository,
-                           SessionRepository sessionRepository,
-                           RoleRepository roleRepository) {
-        this.userRepository = userRepository;
-        this.sessionRepository = sessionRepository;
-        this.roleRepository = roleRepository;
-        this.bCryptPasswordEncoder = new BCryptPasswordEncoder();
-    }
+
 
     @Override
     public UserDto signUp(SignUpRequestDto request) throws UserAlreadyExistsException {
@@ -51,7 +50,7 @@ public class AuthServiceImpl implements AuthService{
 
         User user = new User();
         user.setEmail(request.getEmail());
-        user.setPassword(bCryptPasswordEncoder.encode(request.getPassword()));
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         Set<Role> roles = new HashSet<>();
         Role role = roleRepository.findByName("USER").orElseThrow(
                 ()->new RuntimeException("Unknown error")
@@ -69,7 +68,7 @@ public class AuthServiceImpl implements AuthService{
                 ()-> new UserDoesNotExistsException("User with email: "+request.getEmail()+" does not exist!")
         );
 
-        if(!bCryptPasswordEncoder.matches( request.getPassword(),user.getPassword())){
+        if(!passwordEncoder.matches( request.getPassword(),user.getPassword())){
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
 
